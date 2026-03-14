@@ -1,0 +1,72 @@
+{
+  "name": "vive-ai",
+  "version": "1.0.0",
+  "description": "VIVE AI — Image Enhancer powered by OpenAI GPT Vision",
+  "main": "main.js",
+  "author": "VIVE AI",
+  "scripts": {
+    "start": "electron .",
+    "postinstall": "electron-builder install-app-deps",
+    "dist": "cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win --x64",
+    "dist:portable": "cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win portable --x64"
+  },
+  "build": {
+    "appId": "com.viveai.imageenhancer",
+    "productName": "VIVE AI",
+    "copyright": "Copyright © 2025 VIVE AI",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*",
+      "services/**/*",
+      "assets/**/*",
+      "node_modules/**/*"
+    ],
+    "asarUnpack": [
+      "node_modules/sharp/**/*",
+      "node_modules/@img/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "assets/icon.ico",
+      "requestedExecutionLevel": "asInvoker",
+      "sign": null,
+      "signingHashAlgorithms": null
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "VIVE AI",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
+      "deleteAppDataOnUninstall": false,
+      "license": null
+    }
+  },
+  "dependencies": {
+    "openai": "^4.47.0",
+    "sharp": "^0.33.3"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "electron": "^41.0.2",
+    "electron-builder": "^24.13.3"
+  }
+}

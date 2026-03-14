@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'" />
+  <title>VIVE AI</title>
+  <style>
+    /* ── Reset & base ─────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0f0f1a;
+      --surface:   #1a1a2e;
+      --surface2:  #16213e;
+      --border:    #2a2a4a;
+      --accent1:   #4facfe;
+      --accent2:   #00f2fe;
+      --accent-g:  linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+      --success:   #4ade80;
+      --warn:      #fbbf24;
+      --error:     #f87171;
+      --text:      #e2e8f0;
+      --text-muted:#94a3b8;
+      --radius:    10px;
+      --shadow:    0 4px 24px rgba(0,0,0,.5);
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 14px;
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    /* ── Layout ───────────────────────────────────────────────────────── */
+    .app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      padding: 0 20px 16px;
+    }
+
+    /* ── Header ───────────────────────────────────────────────────────── */
+    header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 0 14px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .header-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: var(--accent-g);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+
+    header h1 {
+      font-size: 18px;
+      font-weight: 700;
+      background: var(--accent-g);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    header p {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* ── Pipeline strip ──────────────────────────────────────────────── */
+    .pipeline-strip {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      padding: 10px 0 8px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      overflow-x: auto;
+    }
+
+    .pipe-step {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .pipe-node {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .pipe-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      transition: background .3s, border-color .3s;
+      position: relative;
+    }
+
+    .pipe-node.active   .pipe-icon { border-color: var(--accent1); background: rgba(79,172,254,.15); }
+    .pipe-node.done     .pipe-icon { border-color: var(--success);  background: rgba(74,222,128,.12); }
+    .pipe-node.error    .pipe-icon { border-color: var(--error);    background: rgba(248,113,113,.12); }
+
+    .pipe-label {
+      font-size: 9px;
+      color: var(--text-muted);
+      text-align: center;
+      white-space: nowrap;
+      letter-spacing: .03em;
+    }
+
+    .pipe-node.active .pipe-label { color: var(--accent1); }
+    .pipe-node.done   .pipe-label { color: var(--success); }
+
+    .pipe-arrow {
+      color: var(--border);
+      font-size: 14px;
+      margin: 0 4px;
+      padding-bottom: 14px;
+    }
+
+    /* Highlight stage 4 (Image Regeneration) as the star */
+    .pipe-node.star .pipe-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      font-size: 18px;
+      border-color: #a78bfa;
+      background: rgba(167,139,250,.1);
+    }
+    .pipe-node.star .pipe-label { color: #a78bfa; font-weight: 600; }
+    .pipe-node.star.active .pipe-icon { background: rgba(167,139,250,.25); }
+    .pipe-node.star.done   .pipe-icon { border-color: var(--success); background: rgba(74,222,128,.12); }
+
+    /* ── Main body ────────────────────────────────────────────────────── */
+    .body {
+      display: flex;
+      gap: 16px;
+      flex: 1;
+      overflow: hidden;
+      padding-top: 12px;
+    }
+
+    .left-col {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      width: 310px;
+      flex-shrink: 0;
+      overflow-y: auto;
+    }
+
+    .right-col {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-width: 0;
+    }
+
+    /* ── Card ─────────────────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+
+    .card-title {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    /* ── Form elements ────────────────────────────────────────────────── */
+    label {
+      display: block;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 5px;
+    }
+
+    .input-wrap {
+      position: relative;
+    }
+
+    input[type="password"],
+    input[type="text"],
+    .folder-display {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 13px;
+      padding: 8px 10px;
+      outline: none;
+      transition: border-color .2s;
+    }
+
+    input:focus { border-color: var(--accent1); }
+
+    .input-wrap .eye-btn {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 15px;
+      line-height: 1;
+      padding: 2px;
+    }
+
+    .folder-display {
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--text-muted);
+      padding-right: 36px;
+    }
+
+    .folder-display.selected { color: var(--text); }
+
+    .folder-btn {
+      position: absolute;
+      right: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: var(--border);
+      border: none;
+      border-radius: 5px;
+      color: var(--text);
+      cursor: pointer;
+      font-size: 16px;
+      padding: 2px 6px;
+      line-height: 1;
+    }
+
+    /* ── Quality radio ────────────────────────────────────────────────── */
+    .quality-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .quality-option {
+      position: relative;
+    }
+
+    .quality-option input[type="radio"] {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .quality-label {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 14px 10px;
+      background: var(--surface2);
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      text-align: center;
+    }
+
+    .quality-option input:checked + .quality-label {
+      border-color: var(--accent1);
+      background: rgba(79,172,254,.08);
+    }
+
+    .quality-label .q-badge {
+      font-size: 18px;
+      font-weight: 800;
+      background: var(--accent-g);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .quality-label .q-res {
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    /* ── Buttons ──────────────────────────────────────────────────────── */
+    .btn {
+      width: 100%;
+      padding: 11px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .2s, transform .1s;
+    }
+
+    .btn:active { transform: scale(.98); }
+    .btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+
+    .btn-primary {
+      background: var(--accent-g);
+      color: #000;
+    }
+
+    .btn-danger {
+      background: linear-gradient(135deg, #f87171, #ef4444);
+      color: #fff;
+      display: none;
+    }
+
+    /* ── Progress log ─────────────────────────────────────────────────── */
+    .log-card {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .log-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .log-clear {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 11px;
+      padding: 3px 8px;
+    }
+
+    .log-clear:hover { color: var(--text); border-color: var(--text-muted); }
+
+    #log-output {
+      flex: 1;
+      overflow-y: auto;
+      background: #0a0a14;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
+      font-size: 12px;
+      line-height: 1.65;
+      min-height: 0;
+    }
+
+    #log-output::-webkit-scrollbar { width: 5px; }
+    #log-output::-webkit-scrollbar-track { background: transparent; }
+    #log-output::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .log-line            { color: #9ca3af; }
+    .log-line.success    { color: var(--success); }
+    .log-line.warn       { color: var(--warn); }
+    .log-line.error      { color: var(--error); }
+    .log-line.info       { color: #cbd5e1; }
+    .log-line.separator  { color: #374151; }
+
+    /* ── Status bar ───────────────────────────────────────────────────── */
+    .status-bar {
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .progress-track {
+      flex: 1;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    #progress-fill {
+      height: 100%;
+      width: 0;
+      background: var(--accent-g);
+      border-radius: 2px;
+      transition: width .4s ease;
+    }
+
+    #status-text {
+      font-size: 12px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <header>
+    <div class="header-icon">✨</div>
+    <div>
+      <h1>VIVE AI</h1>
+      <p>GPT-5.4-Pro Vision Analysis · gpt-image-1.5 Fix &amp; Improve · 4K &amp; 8K Upscale</p>
+    </div>
+  </header>
+
+  <!-- Pipeline strip -->
+  <div class="pipeline-strip">
+
+    <div class="pipe-step">
+      <div class="pipe-node" id="ps-1">
+        <div class="pipe-icon">📁</div>
+        <div class="pipe-label">Local Folder</div>
+      </div>
+    </div>
+
+    <div class="pipe-arrow">→</div>
+
+    <div class="pipe-step">
+      <div class="pipe-node" id="ps-2">
+        <div class="pipe-icon">🤖</div>
+        <div class="pipe-label">AI Agent</div>
+      </div>
+    </div>
+
+    <div class="pipe-arrow">→</div>
+
+    <div class="pipe-step">
+      <div class="pipe-node" id="ps-3">
+        <div class="pipe-icon">🔍</div>
+        <div class="pipe-label">Vision Analysis<br>GPT-5.4-Pro</div>
+      </div>
+    </div>
+
+    <div class="pipe-arrow">→</div>
+
+    <div class="pipe-step">
+      <div class="pipe-node star" id="ps-4">
+        <div class="pipe-icon">✨</div>
+        <div class="pipe-label">Fix Issues &amp; Improve<br>gpt-image-1.5</div>
+      </div>
+    </div>
+
+    <div class="pipe-arrow">→</div>
+
+    <div class="pipe-step">
+      <div class="pipe-node" id="ps-5">
+        <div class="pipe-icon">⬆</div>
+        <div class="pipe-label">Upscale Engine<br>Lanczos3</div>
+      </div>
+    </div>
+
+    <div class="pipe-arrow">→</div>
+
+    <div class="pipe-step">
+      <div class="pipe-node" id="ps-6">
+        <div class="pipe-icon">🖼</div>
+        <div class="pipe-label">Enhanced Image<br>4K / 8K PNG</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Body -->
+  <div class="body">
+
+    <!-- Left column: settings -->
+    <div class="left-col">
+
+      <!-- API Key -->
+      <div class="card">
+        <div class="card-title">OpenAI API Key</div>
+        <label for="api-key">Secret key (sk-…)</label>
+        <div class="input-wrap">
+          <input type="password" id="api-key" placeholder="sk-proj-…" autocomplete="off" />
+          <button class="eye-btn" id="toggle-key" title="Show/hide key">👁</button>
+        </div>
+      </div>
+
+      <!-- Folder -->
+      <div class="card">
+        <div class="card-title">Source Folder</div>
+        <label>Folder containing JPG / PNG / WEBP images</label>
+        <div class="input-wrap">
+          <div class="folder-display" id="folder-display">No folder selected…</div>
+          <button class="folder-btn" id="select-folder-btn" title="Browse">📂</button>
+        </div>
+      </div>
+
+      <!-- Quality -->
+      <div class="card">
+        <div class="card-title">Output Quality</div>
+        <div class="quality-grid">
+          <div class="quality-option">
+            <input type="radio" name="quality" id="q-4k" value="4k" checked />
+            <label class="quality-label" for="q-4k">
+              <span class="q-badge">4K</span>
+              <span class="q-res">3840 × 2160</span>
+            </label>
+          </div>
+          <div class="quality-option">
+            <input type="radio" name="quality" id="q-8k" value="8k" />
+            <label class="quality-label" for="q-8k">
+              <span class="q-badge">8K</span>
+              <span class="q-res">7680 × 4320</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <button class="btn btn-primary" id="start-btn">▶  Start Processing</button>
+      <button class="btn btn-danger"  id="cancel-btn">■  Cancel</button>
+
+    </div>
+
+    <!-- Right column: log -->
+    <div class="right-col">
+      <div class="card log-card">
+        <div class="log-header">
+          <div class="card-title" style="margin-bottom:0">Processing Log</div>
+          <button class="log-clear" id="clear-log-btn">Clear</button>
+        </div>
+        <div id="log-output">
+          <div class="log-line info">Ready. Select a folder and press Start Processing.</div>
+        </div>
+      </div>
+
+      <!-- Status bar -->
+      <div class="status-bar">
+        <div class="progress-track">
+          <div id="progress-fill"></div>
+        </div>
+        <span id="status-text">Idle</span>
+      </div>
+    </div>
+
+  </div><!-- .body -->
+</div><!-- .app -->
+
+<script src="renderer.js"></script>
+</body>
+</html>
